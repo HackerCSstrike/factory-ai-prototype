@@ -130,6 +130,19 @@ def _find_explicit_version_conflicts():
     return conflicts
 
 
+def _conflict_matches_query(query, conflict):
+    query_text = query.lower()
+    generic_terms = ("противореч", "расхожд", "нормоконтрол", "конфликт")
+    topic_terms = re.findall(r"[а-яёa-z0-9]{4,}", query_text)
+    topic_terms = [term for term in topic_terms if not any(marker in term for marker in generic_terms)]
+    if not topic_terms:
+        return True
+
+    conflict_text = " ".join(conflict).lower()
+    conflict_stems = {term[:6] for term in re.findall(r"[а-яёa-z0-9]{4,}", conflict_text)}
+    return any(term[:6] in conflict_stems for term in topic_terms)
+
+
 def build_index():
     """Индексирует документы из папки /app/data/docs"""
     if not os.path.exists(DOCS_DIR):
@@ -164,7 +177,10 @@ def query_system(query: str, mode: str = "qa", top_k: int = 3):
         }
 
     if mode == "contradiction":
-        explicit_conflicts = _find_explicit_version_conflicts()
+        explicit_conflicts = [
+            conflict for conflict in _find_explicit_version_conflicts()
+            if _conflict_matches_query(query, conflict)
+        ]
         if explicit_conflicts:
             answer = "\n\n".join(
                 f"Противоречие в файле **{file_name}**:\n- Версия 1: {version_one}\n- Версия 2: {version_two}"
