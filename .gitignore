@@ -1,0 +1,12 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Runtime data and local model storage
+qdrant_data/
+ollama_data/
+
+# Local document corpus; share test files separately if needed
+data/docs/*
+!data/docs/.gitkeep
