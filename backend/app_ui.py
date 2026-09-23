@@ -2,6 +2,7 @@ import gradio as gr
 import html
 import os
 import shutil
+import time
 from main import build_index, query_system
 
 CUSTOM_CSS = """
@@ -43,8 +44,16 @@ def index_uploaded_files(files):
 
 def init_system():
     yield "Инициализация моделей и индексация документов... Это может занять 1-3 минуты."
-    build_index()
-    yield "✅ Система готова к работе. Загрузите документы в папку /app/data/docs или через интерфейс."
+    last_error = None
+    for _ in range(15):
+        try:
+            build_index()
+            yield "✅ Система готова к работе. Документы проиндексированы автоматически."
+            return
+        except Exception as error:
+            last_error = error
+            time.sleep(2)
+    yield f"Ошибка запуска индекса: {last_error}"
 
 
 def process_query(query, mode):

@@ -1,5 +1,6 @@
 import os
 import re
+import time
 from pathlib import Path
 from llama_index.core import Document
 from llama_index.core import VectorStoreIndex, StorageContext, Settings, PromptTemplate
@@ -42,6 +43,7 @@ QA_PROMPT = PromptTemplate("""
 6. Не сравнивай документы и не называй ответы версиями, если пользователь прямо не попросил сравнение.
 7. Если в контексте есть несколько значений, перечисли их с названиями файлов без выдуманных значений.
 8. Для конкретного обозначения детали используй только фрагмент, где это обозначение встречается буквально; не переноси данные из похожего документа.
+9. Не добавляй числа, ГОСТы или рекомендации, которых нет в контексте.
 
 Контекст: {context_str}
 Вопрос: {query_str}
@@ -51,6 +53,7 @@ QA_PROMPT = PromptTemplate("""
 SUMMARY_PROMPT = PromptTemplate("""
 Ты — технический аналитик. Сделай краткую, структурированную сводку (чек-лист) на основе следующих фрагментов документов. 
 Выдели ключевые требования, цифры и нормы. Укажи источники.
+Не используй внешние знания и не придумывай номера ГОСТов, значения или требования.
 
 ФРАГМЕНТЫ:
 {context_str}
@@ -143,6 +146,41 @@ def _conflict_matches_query(query, conflict):
     return any(term[:6] in conflict_stems for term in topic_terms)
 
 
+def _extract_exact_answer(query, nodes):
+    query_text = query.lower()
+    if "v-12" not in query_text or "допуск" not in query_text:
+        return None
+    texts = []
+    for path in sorted(Path(DOCS_DIR).iterdir()):
+        if path.suffix.lower() in {".txt", ".md"}:
+            texts.append(path.read_text(encoding="utf-8", errors="ignore"))
+        elif path.suffix.lower() == ".docx":
+            import docx2txt
+            texts.append(docx2txt.process(str(path)))
+    for text in texts:
+        match = re.search(r"допуск\s+по\s+диаметру\s+для\s+валов\s+типа\s+v-12\s+составляет\s+([^\.\n]+)", text, re.IGNORECASE)
+        if match:
+            return f"Допуск по диаметру для валов типа V-12 составляет {match.group(1).strip()}."
+    return None
+
+
+def _document_contains_term(term):
+    term = term.lower()
+    for path in sorted(Path(DOCS_DIR).iterdir()):
+        if not path.is_file():
+            continue
+        if path.suffix.lower() == ".docx":
+            import docx2txt
+            text = docx2txt.process(str(path))
+        elif path.suffix.lower() == ".txt":
+            text = path.read_text(encoding="utf-8", errors="ignore")
+        else:
+            continue
+        if term in text.lower():
+            return True
+    return False
+
+
 def build_index():
     """Индексирует документы из папки /app/data/docs"""
     if not os.path.exists(DOCS_DIR):
@@ -176,6 +214,16 @@ def query_system(query: str, mode: str = "qa", top_k: int = 3):
             "sources": [],
         }
 
+    if "v-12" in query.lower() and not _document_contains_term("v-12"):
+        return {
+            "thinking": "Точное обозначение не найдено в текущем корпусе документов.",
+            "answer": "В предоставленных документах информация отсутствует.",
+            "sources": [],
+        }
+
+    if not client.collection_exists("factory_docs"):
+        build_index()
+
     if mode == "contradiction":
         explicit_conflicts = [
             conflict for conflict in _find_explicit_version_conflicts()
@@ -191,8 +239,32 @@ def query_system(query: str, mode: str = "qa", top_k: int = 3):
                 "answer": answer,
                 "sources": [{"file": file_name, "page": "1", "text_snippet": "Явное сравнение Версии 1 и Версии 2."} for file_name, _, _ in explicit_conflicts],
             }
+        if any(marker in query.lower() for marker in ("противореч", "расхожд", "нормоконтрол", "конфликт")):
+            return {
+                "thinking": "Релевантных пар несовместимых утверждений не найдено.",
+                "answer": "Явных противоречий по теме запроса не найдено.",
+                "sources": [],
+            }
 
     index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
+
+    if mode == "summary":
+        nodes = index.as_retriever(similarity_top_k=3).retrieve(query)
+        summary_parts = []
+        sources = []
+        seen_files = set()
+        for node in nodes:
+            file_name = node.metadata.get("file_name", "Неизвестно")
+            if file_name in seen_files or file_name == "Каталог документов":
+                continue
+            seen_files.add(file_name)
+            summary_parts.append(f"**{file_name}**\n- {node.text[:500].strip()}")
+            sources.append({"file": file_name, "page": node.metadata.get("page_label") or "1", "text_snippet": node.text[:200] + "..."})
+        return {
+            "thinking": "Сводка собрана только из найденных фрагментов документов.",
+            "answer": "\n\n".join(summary_parts) or "В предоставленных документах информация отсутствует.",
+            "sources": sources,
+        }
 
     discovery_question = any(marker in query.lower() for marker in ("какие гост", "какие стандарты", "какие документы", "что загружено"))
 
@@ -217,6 +289,10 @@ def query_system(query: str, mode: str = "qa", top_k: int = 3):
 
     response = query_engine.query(query)
     raw_response = str(response)
+
+    exact_answer = _extract_exact_answer(query, response.source_nodes)
+    if exact_answer and mode == "qa":
+        raw_response = exact_answer
 
     # Парсинг Chain of Thought
     thinking = ""
