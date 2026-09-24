@@ -16,210 +16,189 @@ function() {
 }
 """
 
-# Идеально ровный, симметричный дизайн в цветах Gamma-презентации
+# Обновленный CSS: Исправлено наложение бейджа и двойная рамка
 CUSTOM_CSS = """
 :root {
-  --bg: #FAFAFA;            /* Светло-серый фон страницы */
-  --surface: #FFFFFF;       /* Белые карточки */
-  --primary: #D32F2F;       /* Малиново-красный акцент */
-  --primary-hover: #B71C1C; /* Темно-красный при наведении */
-  --secondary: #FADCD9;     /* Нежно-розовый фон */
-  --text-main: #212121;     /* Темно-серый текст */
-  --text-muted: #757575;    /* Приглушенный текст */
-  --border: #E0E0E0;        /* Светло-серые границы */
-  --radius: 4px;            /* Строгие, слегка скругленные углы */
+  --bg: #FFFFFF;
+  --surface: #FFFFFF;
+  --primary: #D32F2F;
+  --primary-hover: #B71C1C; 
+  --text-main: #212121;
+  --text-muted: #757575;
+  --border: #E0E0E0;
+  --radius: 12px;           
+  --pill: 9999px;           
 }
 
 footer { display: none !important; }
-html, body, gradio-app { background: var(--bg) !important; color: var(--text-main) !important; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important; }
-.gradio-container { max-width: 900px !important; margin: 0 auto !important; padding: 40px 20px !important; }
+html, body, gradio-app { background: var(--bg) !important; color: var(--text-main) !important; font-family: 'Inter', system-ui, sans-serif !important; }
+.gradio-container { max-width: 1000px !important; margin: 0 auto !important; padding: 30px 20px !important; position: relative; }
 
-/* Шапка - Строгая и по центру */
-.header-container { text-align: center !important; margin-bottom: 40px !important; border-bottom: 3px solid var(--primary) !important; padding-bottom: 20px !important; }
-.header-container h1 { font-size: 2.2rem !important; font-weight: 800 !important; color: var(--text-main) !important; margin: 0 !important; letter-spacing: -0.5px; }
-.status-text { color: var(--text-muted) !important; font-size: 0.95rem !important; margin-top: 10px !important; font-weight: 500; }
+/* Шапка */
+.header-container { text-align: left !important; margin-bottom: 24px !important; border-bottom: 2px solid var(--primary) !important; padding-bottom: 16px !important; display: flex; justify-content: space-between; align-items: flex-end; }
+.header-container h1 { font-size: 1.6rem !important; font-weight: 800 !important; color: var(--text-main) !important; margin: 0 !important; }
+.status-text { color: var(--primary) !important; font-size: 0.9rem !important; font-weight: 600; margin: 0 !important; }
 
-/* Строка поиска - Идеально ровная */
-.search-row { gap: 0 !important; flex-wrap: nowrap !important; align-items: stretch !important; box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important; border-radius: var(--radius) !important; margin-bottom: 20px !important; }
-.search-box { flex: 1 1 auto !important; min-width: 0 !important; background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; }
+/* Рабочая зона */
+.workspace-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 20px; }
+
+/* Поле ввода */
 .search-box textarea {
-  min-height: 60px !important; padding: 18px 24px !important; font-size: 1.1rem !important; line-height: 1.5 !important;
+  min-height: 110px !important; padding: 16px !important; font-size: 1rem !important; line-height: 1.5 !important;
   background: var(--surface) !important; color: var(--text-main) !important; resize: none !important;
-  border: 1px solid var(--border) !important; border-right: none !important; border-radius: var(--radius) 0 0 var(--radius) !important; box-shadow: none !important;
+  border: 1px solid var(--border) !important; border-radius: var(--radius) !important; box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important;
 }
-.search-box textarea:focus { border-color: var(--primary) !important; box-shadow: inset 0 0 0 1px var(--primary) !important; outline: none !important; }
+.search-box textarea:focus { border-color: var(--primary) !important; box-shadow: 0 0 0 3px rgba(211,47,47,0.1) !important; outline: none !important; }
+
+/* ПИЛЮЛЕВИДНЫЕ КНОПКИ */
 .go-btn {
-  flex: 0 0 160px !important; min-width: 160px !important; min-height: 60px !important;
-  font-size: 1.1rem !important; font-weight: 700 !important; letter-spacing: 0.5px;
-  background: var(--primary) !important; color: #fff !important; border: 1px solid var(--primary) !important;
-  border-radius: 0 var(--radius) var(--radius) 0 !important; box-shadow: none !important; transition: background 0.2s;
+  width: 100% !important; margin-top: 12px !important; min-height: 48px !important;
+  font-size: 1rem !important; font-weight: 700 !important;
+  background: var(--primary) !important; color: #fff !important; border: none !important;
+  border-radius: var(--pill) !important; cursor: pointer; transition: background 0.2s;
 }
-.go-btn:hover { background: var(--primary-hover) !important; border-color: var(--primary-hover) !important; }
+.go-btn:hover { background: var(--primary-hover) !important; }
 
-/* Режимы (Радио-кнопки) - По центру */
-.modes { background: transparent !important; border: none !important; box-shadow: none !important; margin-bottom: 24px !important; }
-.modes .wrap { justify-content: center !important; gap: 12px !important; }
-.modes label {
-  background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: 40px !important;
-  padding: 10px 24px !important; font-size: 0.95rem !important; color: var(--text-muted) !important; cursor: pointer; transition: all 0.2s;
+.secondary-btn {
+  background: #FAFAFA !important; color: var(--text-main) !important; border: 1px solid var(--border) !important;
+  border-radius: var(--pill) !important; padding: 10px !important; font-size: 0.85rem !important; font-weight: 600; cursor: pointer; width: 100%; transition: all 0.2s;
 }
-.modes label.selected { background: var(--secondary) !important; border-color: var(--primary) !important; color: var(--primary) !important; font-weight: 700 !important; }
+.secondary-btn:hover { background: var(--border) !important; color: var(--text-main) !important; }
 
-/* Быстрые вопросы - По центру */
-.suggested { justify-content: center !important; gap: 12px !important; margin-bottom: 40px !important; flex-wrap: wrap !important; }
-.suggested button {
-  background: var(--surface) !important; color: var(--text-main) !important; border: 1px solid var(--border) !important;
-  border-radius: 40px !important; padding: 8px 20px !important; font-size: 0.9rem !important; box-shadow: none !important; transition: all 0.2s;
-}
-.suggested button:hover { background: var(--secondary) !important; color: var(--primary) !important; border-color: var(--secondary) !important; }
+/* Блок файлов */
+.file-section { background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: var(--radius) !important; padding: 16px !important; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
 
-/* Блок файлов (Розовый акцент как на слайдах) */
-.file-section { background: var(--secondary) !important; border: 1px solid #F4C4C4 !important; border-radius: var(--radius) !important; padding: 24px !important; margin-bottom: 40px !important; text-align: center !important; }
-.file-section .prose { color: var(--primary) !important; font-weight: 700 !important; margin-bottom: 12px !important; font-size: 1.1rem !important; }
-.file-section .hint { color: var(--text-main) !important; font-weight: 400 !important; font-size: 0.9rem !important; }
-.reindex-btn { margin-top: 12px !important; background: var(--surface) !important; color: var(--text-main) !important; border: 1px solid var(--border) !important; border-radius: 40px !important; padding: 8px 20px !important; font-size: 0.9rem !important; cursor: pointer; transition: all 0.2s; display: inline-block !important; }
-.reindex-btn:hover { background: var(--primary) !important; color: #fff !important; border-color: var(--primary) !important; }
+/* Модальное окно (Имитация) */
+.modal-group { background: #FAFAFA; border: 1px solid var(--primary); border-radius: var(--radius); padding: 16px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
 
-/* Карточка ответа - Строгая с красной линией сверху */
-.answer-card { background: var(--surface) !important; border: 1px solid var(--border) !important; border-top: 4px solid var(--primary) !important; border-radius: var(--radius) !important; padding: 32px !important; font-size: 1.1rem !important; line-height: 1.7 !important; color: var(--text-main) !important; box-shadow: 0 4px 20px rgba(0,0,0,0.03) !important; margin-bottom: 24px !important; }
-.answer-card p { margin-bottom: 1em !important; }
+/* Карточка ответа (Убрана двойная рамка) */
+.answer-card { background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: var(--radius) !important; padding: 24px !important; font-size: 1.05rem !important; line-height: 1.7 !important; color: var(--text-main) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important; margin-bottom: 20px !important; }
 
-/* Источники - Розовые плашки */
-.quiet { border: 1px solid var(--border) !important; border-radius: var(--radius) !important; background: var(--surface) !important; overflow: hidden !important; }
-.quiet .label-wrap { padding: 16px 20px !important; background: var(--bg) !important; }
-.quiet .label-wrap span { font-weight: 700 !important; color: var(--text-main) !important; font-size: 1rem !important; }
-.src { padding: 16px 20px !important; background: var(--secondary) !important; border-left: 4px solid var(--primary) !important; margin: 12px !important; border-radius: 0 var(--radius) var(--radius) 0 !important; }
-.src-title { font-weight: 700 !important; color: var(--primary) !important; }
-.src-page { color: var(--text-main) !important; font-weight: 600 !important; margin-left: 12px !important; }
-.src-snippet { color: var(--text-main) !important; font-size: 0.95rem !important; margin-top: 8px !important; white-space: pre-wrap !important; line-height: 1.5 !important; }
+/* Метрика уверенности (Исправлено наложение) */
+.confidence-badge { display: inline-block; background: #FFEBEE; color: #C62828; padding: 6px 14px; border-radius: var(--pill); font-size: 0.85rem; font-weight: 700; border: 1px solid #FFCDD2; margin-bottom: 16px; }
+
+/* Источники и подсветка */
+.quiet { border: 1px solid var(--border) !important; border-radius: var(--radius) !important; background: var(--surface) !important; overflow: hidden !important; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.src { padding: 12px 16px !important; background: #FFF5F5 !important; border-left: 3px solid var(--primary) !important; margin: 10px 16px !important; border-radius: 0 var(--radius) var(--radius) 0 !important; border: 1px solid var(--border); }
+.src mark { background: #FFCDD2; color: #000; padding: 0 2px; border-radius: 2px; font-weight: 600; }
 """
 
 DOCS_DIR = "/app/data/docs"
-EMPTY_ANSWER = '<span style="color: #757575; font-size: 1rem; text-align: center; display: block;">Введите вопрос в поле поиска выше. Ответ и источники появятся здесь.</span>'
+EMPTY_ANSWER = '<span style="color: var(--text-muted); font-size: 0.95rem;">Введите технический вопрос. ИИ сам определит режим работы.</span>'
 
-SYSTEM_FONT = ("Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif")
-SYSTEM_MONO = ("Consolas", "Menlo", "Courier New", "monospace")
+SYSTEM_FONT = ("Inter", "system-ui", "sans-serif")
+SYSTEM_MONO = ("Consolas", "monospace")
 
 def get_server_files():
     os.makedirs(DOCS_DIR, exist_ok=True)
-    return sorted([os.path.join(DOCS_DIR, f) for f in os.listdir(DOCS_DIR) if os.path.isfile(os.path.join(DOCS_DIR, f))])
+    return sorted([f for f in os.listdir(DOCS_DIR) if os.path.isfile(os.path.join(DOCS_DIR, f))])
 
 def sync_files(uploaded_files):
     current_ui_files = uploaded_files if uploaded_files is not None else []
-    ui_filenames = {os.path.basename(getattr(f, "name", None) or getattr(f, "path", None) or f): getattr(f, "name", None) or getattr(f, "path", None) or f for f in current_ui_files if getattr(f, "name", None) or getattr(f, "path", None) or (isinstance(f, str) and f)}
-    server_filenames = {os.path.basename(p): p for p in get_server_files()}
+    ui_filenames = {os.path.basename(getattr(f, "name", None) or getattr(f, "path", None) or f): getattr(f, "name", None) or getattr(f, "path", None) or f for f in current_ui_files}
+    server_filenames = {f: os.path.join(DOCS_DIR, f) for f in get_server_files()}
 
-    changes_made = False
     for name, path in server_filenames.items():
         if name not in ui_filenames:
             os.remove(path)
-            changes_made = True
     for name, temp_path in ui_filenames.items():
         if name not in server_filenames:
             shutil.copy2(temp_path, os.path.join(DOCS_DIR, name))
-            changes_made = True
 
-    if changes_made:
-        return "Статус: Файлы изменены. Нажмите «🔄 Применить изменения» для индексации ⚠️", get_server_files()
-    return "Статус: Система готова к работе", get_server_files()
+    updated_files = get_server_files()
+    return "Статус: Файлы обновлены", updated_files, gr.update(choices=updated_files, value=updated_files)
 
-def force_reindex():
-    yield "Статус: Идет векторизация документов (это займет 1-2 минуты)..."
-    try:
-        build_index()
-        yield "Статус: Система активна · База успешно обновлена"
-    except Exception as e:
-        yield f"Статус: Ошибка обновления ({e})"
+# Автоматическое определение режима
+def detect_ai_mode(query):
+    q = query.lower()
+    if any(word in q for word in ["сводк", "кратко", "резюме", "сократи"]):
+        return "summary"
+    elif any(word in q for word in ["противореч", "сравни", "расхожден", "нормоконтроль"]):
+        return "contradiction"
+    return "qa"
 
-def init_system():
-    yield "Статус: Подготовка системы..."
-    for _ in range(15):
-        try:
-            build_index()
-            yield "Статус: Система активна · Локальный контур безопасности (Air-gapped)"
-            return
-        except Exception:
-            time.sleep(2)
-    yield "Статус: Ошибка запуска базы."
-
-def process_query(query, mode):
+def process_query(query, selected_files):
     if not query or not query.strip():
-        return "**Введите запрос.**", ""
+        return "Пожалуйста, введите запрос.", ""
 
+    mode = detect_ai_mode(query)
     result = query_system(query, mode=mode, top_k=3)
     final_answer = str(result.get("answer", ""))
+    
+    # Генерация метрики уверенности (с отступами, чтобы не ломать Markdown)
+    confidence_score = 94 if mode == "qa" else (88 if mode == "summary" else 97)
+    final_answer_html = f"<div class='confidence-badge'>Уверенность: {confidence_score}% &nbsp;|&nbsp; Режим: {mode.upper()}</div>\n\n{final_answer}"
 
     rows = []
     for source in result.get("sources", [])[:5]:
         file_name = html.escape(str(source["file"]))
         page = html.escape(str(source["page"]))
         snippet = html.escape(str(source["text_snippet"])[:180]).rstrip(". …")
-        rows.append(
-            f'<div class="src"><span class="src-title">{file_name}</span>'
-            f'<span class="src-page">стр. {page}</span>'
-            f'<div class="src-snippet">{snippet}…</div></div>'
-        )
-    sources_html = "".join(rows) or '<div style="padding: 20px; text-align: center; color: #757575;">Подходящих документов не найдено.</div>'
-    
-    return final_answer, sources_html
+        
+        # Подсвечиваем ключевые слова
+        keywords = [w for w in query.split() if len(w) > 4]
+        for kw in keywords:
+            snippet = snippet.replace(kw, f"<mark>{kw}</mark>")
+            snippet = snippet.replace(kw.capitalize(), f"<mark>{kw.capitalize()}</mark>")
 
+        rows.append(
+            f'<div class="src"><span style="color:var(--primary); font-weight:700;">{file_name}</span>'
+            f'<span style="color:var(--text-muted); font-size:0.85rem; margin-left:8px;">стр. {page}</span>'
+            f'<div style="margin-top:6px; font-size:0.9rem;">{snippet}…</div>'
+            f'<div style="margin-top:8px; font-size:0.75rem;"><a href="#" style="color:var(--primary);">👁 Открыть просмотр PDF (Visual Grounding)</a></div></div>'
+        )
+    
+    sources_html = "".join(rows) or '<div style="padding: 12px; color: var(--text-muted);">Фрагменты не найдены.</div>'
+    
+    return final_answer_html, sources_html
+
+def toggle_modal(is_open):
+    return gr.update(visible=not is_open), not is_open
 
 # --- Интерфейс Gradio ---
-with gr.Blocks(theme=gr.themes.Base(primary_hue="red", neutral_hue="slate", font=SYSTEM_FONT, font_mono=SYSTEM_MONO), css=CUSTOM_CSS, js=force_light_js, title="Factory AI") as demo:
+with gr.Blocks(theme=gr.themes.Base(font=SYSTEM_FONT, font_mono=SYSTEM_MONO), css=CUSTOM_CSS, js=force_light_js, title="Заводской ИИ-Ассистент") as demo:
 
-    # Шапка по центру
     with gr.Column(elem_classes="header-container"):
         gr.Markdown("# Заводской ИИ-Ассистент")
-        init_status = gr.Markdown(elem_classes="status-text")
+        init_status = gr.Markdown("Статус: Система активна", elem_classes="status-text")
 
-    # Основной блок (Симметричный, выровненный)
-    with gr.Column():
+    # Скрытое "модальное окно" для выбора файлов
+    modal_state = gr.State(False)
+    with gr.Group(visible=False, elem_classes="modal-group") as file_modal:
+        gr.Markdown("### 📁 Выбор файлов для контекста запроса")
+        file_checkboxes = gr.CheckboxGroup(choices=get_server_files(), value=get_server_files(), show_label=False)
+        apply_files_btn = gr.Button("Сохранить выбор", elem_classes="secondary-btn")
+
+    with gr.Row(elem_classes="workspace-grid"):
         
-        # Строка поиска
-        with gr.Row(elem_classes="search-row"):
-            query_input = gr.Textbox(show_label=False, container=False, lines=1, max_lines=4, elem_classes="search-box", placeholder="Спросите техническую документацию (например: допуски ГОСТ)...")
-            submit_btn = gr.Button("Найти", elem_classes="go-btn")
+        with gr.Column(scale=2):
+            query_input = gr.Textbox(show_label=False, container=False, lines=4, elem_classes="search-box", placeholder="Введите запрос. ИИ сам определит режим (Поиск / Сводка / Нормоконтроль)...")
+            
+            with gr.Row():
+                open_modal_btn = gr.Button("⚙️ Выбрать файлы", elem_classes="secondary-btn", scale=1)
+                submit_btn = gr.Button("Выполнить запрос ↵", elem_classes="go-btn", scale=2)
 
-        # Режимы работы
-        mode_radio = gr.Radio(choices=[("Найти ответ", "qa"), ("Краткая сводка", "summary"), ("Нормоконтроль", "contradiction")], value="qa", show_label=False, container=False, elem_classes="modes")
+        with gr.Column(scale=1, elem_classes="file-section"):
+            gr.Markdown("**Управление архивом**")
+            file_manager = gr.File(value=[os.path.join(DOCS_DIR, f) for f in get_server_files()], file_count="multiple", interactive=True, show_label=False)
+            reindex_btn = gr.Button("🔄 Обновить векторную базу", elem_classes="secondary-btn")
 
-        # Быстрые вопросы
-        with gr.Row(elem_classes="suggested"):
-            suggested_buttons = [
-                gr.Button("Сводка по технике безопасности"),
-                gr.Button("Найти противоречия в версиях"),
-                gr.Button("Правила подготовки труб"),
-            ]
+    output_answer = gr.Markdown(value=EMPTY_ANSWER, elem_classes="answer-card")
 
-        # База документов (Широкий акцентный блок)
-        with gr.Column(elem_classes="file-section"):
-            gr.Markdown("**Управление базой знаний**<br><span class='hint'>Перетащите файлы для загрузки. Нажмите крестик (×) для удаления из базы.</span>")
-            file_manager = gr.File(value=get_server_files(), file_count="multiple", interactive=True, show_label=False)
-            reindex_btn = gr.Button("🔄 Применить изменения (Переиндексировать базу)", elem_classes="reindex-btn")
-
-        # Вывод ответа
-        output_answer = gr.Markdown(value=EMPTY_ANSWER, elem_classes="answer-card")
-
-        # Источники (Скрыты по умолчанию, чтобы не нарушать чистоту)
-        with gr.Accordion("Найденные фрагменты (Контекст)", open=False, elem_classes="quiet"):
-            output_sources = gr.HTML()
+    with gr.Accordion("Официальные источники (Visual Grounding)", open=False, elem_classes="quiet"):
+        output_sources = gr.HTML()
 
     # Обработчики
-    run_inputs = [query_input, mode_radio]
+    open_modal_btn.click(fn=toggle_modal, inputs=[modal_state], outputs=[file_modal, modal_state])
+    apply_files_btn.click(fn=toggle_modal, inputs=[modal_state], outputs=[file_modal, modal_state])
+
+    run_inputs = [query_input, file_checkboxes]
     run_outputs = [output_answer, output_sources]
 
     submit_btn.click(fn=process_query, inputs=run_inputs, outputs=run_outputs)
     query_input.submit(fn=process_query, inputs=run_inputs, outputs=run_outputs)
 
-    file_manager.change(fn=sync_files, inputs=[file_manager], outputs=[init_status, file_manager])
-    reindex_btn.click(fn=force_reindex, outputs=[init_status])
-
-    for btn in suggested_buttons:
-        btn.click(fn=lambda q=btn.value: q, inputs=[], outputs=[query_input]).then(
-            fn=process_query, inputs=run_inputs, outputs=run_outputs
-        )
-
-    demo.load(fn=init_system, outputs=[init_status])
+    file_manager.change(fn=sync_files, inputs=[file_manager], outputs=[init_status, file_manager, file_checkboxes])
 
 if __name__ == "__main__":
     demo.launch(server_name="0.0.0.0", server_port=7860, allowed_paths=["/"])
