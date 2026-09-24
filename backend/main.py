@@ -5,6 +5,7 @@ from pathlib import Path
 from llama_index.core import Document
 from llama_index.core import VectorStoreIndex, StorageContext, Settings, PromptTemplate
 from llama_index.core.node_parser import SentenceSplitter
+from llama_index.core.postprocessor.types import BaseNodePostprocessor
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.llms.ollama import Ollama
 from llama_index.vector_stores.qdrant import QdrantVectorStore
@@ -37,13 +38,10 @@ QA_PROMPT = PromptTemplate("""
 Правила:
 1. Для вопросов по документам используй только контекст.
 2. Сразу дай краткий прямой ответ, затем при необходимости пояснение.
-3. Не показывай рассуждения и не используй тег <thinking>.
-4. Источники и цитаты интерфейс покажет отдельно, не выдумывай пути и номера страниц.
-5. Если данных нет, напиши: "В предоставленных документах информация отсутствует".
-6. Не сравнивай документы и не называй ответы версиями, если пользователь прямо не попросил сравнение.
-7. Если в контексте есть несколько значений, перечисли их с названиями файлов без выдуманных значений.
-8. Для конкретного обозначения детали используй только фрагмент, где это обозначение встречается буквально; не переноси данные из похожего документа.
-9. Не добавляй числа, ГОСТы или рекомендации, которых нет в контексте.
+3. Отвечай строго на поставленный вопрос. Если во фрагментах есть таблицы, цифры или данные, не относящиеся к вопросу напрямую, полностью их проигнорируй.
+4. Не показывай рассуждения и не используй тег <thinking>.
+5. Если нужных данных нет, напиши: "В предоставленных документах информация отсутствует".
+6. Не добавляй числа, ГОСТы или рекомендации, которых нет в контексте.
 
 Контекст: {context_str}
 Вопрос: {query_str}
@@ -51,29 +49,46 @@ QA_PROMPT = PromptTemplate("""
 """)
 
 SUMMARY_PROMPT = PromptTemplate("""
-Ты — технический аналитик. Сделай краткую, структурированную сводку (чек-лист) на основе следующих фрагментов документов. 
-Выдели ключевые требования, цифры и нормы. Укажи источники.
-Не используй внешние знания и не придумывай номера ГОСТов, значения или требования.
+ТЫ — СТРОГИЙ ТЕХНИЧЕСКИЙ АНАЛИТИК. СОСТАВЬ КРАТКУЮ СТРУКТУРИРОВАННУЮ СВОДКУ (МАРКИРОВАННЫЙ СПИСОК) ТОЛЬКО ПО ФРАГМЕНТАМ, КОТОРЫЕ НЕПОСРЕДСТВЕННО ОТНОСЯТСЯ К ЗАПРОСУ.
+
+ЕСЛИ ФРАГМЕНТ НЕ ОТНОСИТСЯ К ТЕМЕ ЗАПРОСА (НАПРИМЕР, СОДЕРЖИТ ТАБЛИЦЫ ДИАМЕТРОВ, СХЕМЫ ИЛИ НЕРЕЛЕВАНТНЫЕ ЦИФРЫ) — ПОЛНОСТЬЮ ИСКЛЮЧИ ЕГО ИЗ СВОДКИ. ТВОЯ ЗАДАЧА — ОТФИЛЬТРОВАТЬ МУСОР.
+НЕ ОБЪЕДИНЯЙ НЕСВЯЗАННЫЕ ФРАГМЕНТЫ И НЕ ДЕЛАЙ ВЫВОДОВ ИЗ СЛУЧАЙНЫХ ЦИФР, ОБРЫВКОВ ТАБЛИЦ, ОГЛАВЛЕНИЙ ИЛИ СХЕМ.
+НЕ ДОБАВЛЯЙ ИНФОРМАЦИЮ, КОТОРОЙ НЕТ В РЕЛЕВАНТНОМ ФРАГМЕНТЕ. ЕСЛИ РЕЛЕВАНТНЫХ ДАННЫХ НЕТ, НАПИШИ: "В ПРЕДОСТАВЛЕННЫХ ДОКУМЕНТАХ ИНФОРМАЦИЯ ОТСУТСТВУЕТ".
 
 ФРАГМЕНТЫ:
 {context_str}
-
+ЗАПРОС ПОЛЬЗОВАТЕЛЯ: {query_str}
 СВОДКА:
 """)
 
+class ScoreFloorPostprocessor(BaseNodePostprocessor):
+    """Оставляет для LLM и UI один и тот же набор наиболее релевантных узлов."""
+
+    score_ratio: float = 0.90
+    def _postprocess_nodes(self, nodes, query_bundle=None):
+        nodes = [
+            node for node in nodes
+            if node.node.metadata.get("file_name") != "Каталог документов"
+        ]
+        scores = [node.score for node in nodes if node.score is not None]
+        if not scores:
+            return nodes
+        score_floor = max(scores) * self.score_ratio
+        return [
+            node for node in nodes
+            if node.score is not None and node.score >= score_floor
+        ]
+
+
 CONTRADICTION_PROMPT = PromptTemplate("""
-Ты — эксперт по нормоконтролю. Проанализируй предоставленные фрагменты из РАЗНЫХ документов на наличие логических или фактических противоречий.
-Учитывай также разные версии внутри одного документа.
-Называй противоречием только два конкретных несовместимых утверждения. Не выдумывай конфликт, если его нет.
-Для каждого найденного конфликта укажи оба точных значения, разделы и файл.
+Ты — эксперт по нормоконтролю. Проанализируй предоставленные фрагменты на наличие логических или фактических противоречий.
+Называй противоречием только два конкретных несовместимых утверждения.
 Если конфликтов нет, напиши только: "Явных противоречий не найдено".
 
 ФРАГМЕНТЫ:
 {context_str}
-
 ЗАПРОС ПОЛЬЗОВАТЕЛЯ: {query_str}
-
-НАЙДЕННЫЕ ПРОТИВОРЕЧИЯ (или сообщение об их отсутствии):
+НАЙДЕННЫЕ ПРОТИВОРЕЧИЯ:
 """)
 
 # --- ФУНКЦИИ ---
@@ -209,14 +224,14 @@ def query_system(query: str, mode: str = "qa", top_k: int = 3):
     general_markers = ("что ты умеешь", "твои функции", "как ты работаешь", "что умеешь")
     if any(marker in query.lower() for marker in general_markers):
         return {
-            "thinking": "Вопрос общий, поэтому поиск по документам не требуется.",
+            "thinking": "Вопрос общий, поиск не требуется.",
             "answer": "Я ищу информацию в документах, суммаризирую их и ищу противоречия. Задайте вопрос по ГОСТам или инструкциям.",
             "sources": [],
         }
 
     if "v-12" in query.lower() and not _document_contains_term("v-12"):
         return {
-            "thinking": "Точное обозначение не найдено в текущем корпусе документов.",
+            "thinking": "Обозначение не найдено.",
             "answer": "В предоставленных документах информация отсутствует.",
             "sources": [],
         }
@@ -235,36 +250,14 @@ def query_system(query: str, mode: str = "qa", top_k: int = 3):
                 for file_name, version_one, version_two in explicit_conflicts
             )
             return {
-                "thinking": "Найдена явная пара разных утверждений в версиях документа.",
+                "thinking": "Найдено явное противоречие.",
                 "answer": answer,
                 "sources": [{"file": file_name, "page": "1", "text_snippet": "Явное сравнение Версии 1 и Версии 2."} for file_name, _, _ in explicit_conflicts],
-            }
-        if any(marker in query.lower() for marker in ("противореч", "расхожд", "нормоконтрол", "конфликт")):
-            return {
-                "thinking": "Релевантных пар несовместимых утверждений не найдено.",
-                "answer": "Явных противоречий по теме запроса не найдено.",
-                "sources": [],
             }
 
     index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
 
-    if mode == "summary":
-        nodes = index.as_retriever(similarity_top_k=3).retrieve(query)
-        summary_parts = []
-        sources = []
-        seen_files = set()
-        for node in nodes:
-            file_name = node.metadata.get("file_name", "Неизвестно")
-            if file_name in seen_files or file_name == "Каталог документов":
-                continue
-            seen_files.add(file_name)
-            summary_parts.append(f"**{file_name}**\n- {node.text[:500].strip()}")
-            sources.append({"file": file_name, "page": node.metadata.get("page_label") or "1", "text_snippet": node.text[:200] + "..."})
-        return {
-            "thinking": "Сводка собрана только из найденных фрагментов документов.",
-            "answer": "\n\n".join(summary_parts) or "В предоставленных документах информация отсутствует.",
-            "sources": sources,
-        }
+    # Убрали багованный блок, который перехватывал summary и обрубал работу LLM
 
     discovery_question = any(marker in query.lower() for marker in ("какие гост", "какие стандарты", "какие документы", "что загружено"))
 
@@ -281,9 +274,12 @@ def query_system(query: str, mode: str = "qa", top_k: int = 3):
         prompt = QA_PROMPT
         top_k = min(top_k, 3)
 
+    # Фильтрация выполняется внутри query_engine до формирования prompt.
+    # Поэтому response.source_nodes и фактический контекст LLM совпадают.
     query_engine = index.as_query_engine(
         text_qa_template=prompt,
         similarity_top_k=top_k,
+        node_postprocessors=[ScoreFloorPostprocessor(score_ratio=0.90)],
         response_mode="compact"
     )
 
@@ -294,21 +290,14 @@ def query_system(query: str, mode: str = "qa", top_k: int = 3):
     if exact_answer and mode == "qa":
         raw_response = exact_answer
 
-    # Парсинг Chain of Thought
-    thinking = ""
     final_answer = raw_response
     if "<thinking>" in raw_response and "</thinking>" in raw_response:
-        thinking = raw_response.split("<thinking>")[1].split("</thinking>")[0].strip()
         final_answer = raw_response.split("</thinking>")[1].strip()
 
     sources = []
     seen_sources = set()
-    scored_nodes = [node for node in response.source_nodes if node.metadata.get("file_name") != "Каталог документов"]
-    scores = [node.score for node in scored_nodes if node.score is not None]
-    score_floor = max(scores) * 0.85 if scores else None
-    for node in scored_nodes:
-        if score_floor is not None and node.score is not None and node.score < score_floor:
-            continue
+    # response.source_nodes уже отфильтрованы тем же postprocessor до LLM.
+    for node in response.source_nodes:
         file_name = node.metadata.get('file_name', 'Неизвестно')
         page = node.metadata.get('page_label') or node.metadata.get('page_number') or '1'
         source_key = (file_name, str(page))
@@ -322,7 +311,7 @@ def query_system(query: str, mode: str = "qa", top_k: int = 3):
         })
 
     return {
-        "thinking": thinking,
+        "thinking": "",
         "answer": final_answer,
         "sources": sources
     }
